@@ -8,6 +8,27 @@ import os
 ALPHA = 0.5  # Weight for IoU
 BETA = 0.5   # Weight for appearance
 
+# === IMPROVEMENT 1: Tune alpha/beta weights ===
+# Original: ALPHA = 0.5, BETA = 0.5 (equal weighting)
+# Test 2: Favor appearance more since IoU alone caused fragmentation
+# ALPHA = 0.3  # Weight for IoU (reduced)
+# BETA = 0.7   # Weight for appearance (increased)
+# === TEST 3: Revert to balanced weights ===
+ALPHA = 0.5
+BETA = 0.5
+
+# === IMPROVEMENT 2: Matching threshold ===
+# If similarity score is below this, don't match (create new track instead)
+# MATCHING_THRESHOLD = 0.3
+# === TEST 3: Lower threshold to allow more matches ===
+MATCHING_THRESHOLD = 0.2
+
+# === IMPROVEMENT 3: Track persistence ===
+# Keep lost tracks alive for N frames before terminating
+# MAX_AGE = 30  # frames to keep lost tracks
+# === TEST 3: Reduce to avoid flickering ghost tracks ===
+MAX_AGE = 10  # reduced from 30
+
 sys.path.append('../2D_Kalman-Filter_TP1')
 from KalmanFilter import Kalmanfilter
 
@@ -147,15 +168,27 @@ def match_detections(tracks, detections):
             cost_matrix[t][d] = score
 
     row_ind, col_ind = scipy.optimize.linear_sum_assignment(cost_matrix, maximize=True) # We want to maximize the overall similarity
-    return row_ind, col_ind
+    # === IMPROVEMENT 2: Return cost_matrix so we can check thresholds ===
+    return row_ind, col_ind, cost_matrix
 
 def process_tracking_loop(detections_by_frame, output_file):
     k_filters = {}
+    # === IMPROVEMENT 3: Track age dictionary to keep lost tracks ===
+    track_ages = {}  # track_id -> frames since last seen
+    track_last_boxes = {}  # track_id -> last known [x, y, w, h]
+    track_features = {}  # track_id -> last known appearance features
+    
     if 1 not in detections_by_frame:
         print("Frame 1 not found.")
         return
     tracks = initialize_first_frame(detections_by_frame[1], k_filters)
     max_id = np.max(tracks[:, 1])
+    
+    # Initialize ages for first frame tracks
+    for t in tracks:
+        track_ages[t[1]] = 0
+        track_last_boxes[t[1]] = t[2:6].copy()
+    
     with open(output_file, 'w') as f:
         np.savetxt(f, tracks, fmt='%d', delimiter=',')
     print(f"Frame 1 processed. Tracks: {len(tracks)}")
@@ -166,10 +199,42 @@ def process_tracking_loop(detections_by_frame, output_file):
             current_detections = detections_by_frame[frame_num]
             for track_id, kf in k_filters.items():
                 kf.predict()
-            row_ind, col_ind = match_detections(tracks, current_detections)
-            matches = {c: r for r, c in zip(row_ind, col_ind)}
+            
+            # === IMPROVEMENT 3: Include lost tracks in matching ===
+            # Build active_tracks from current tracks + lost tracks that haven't exceeded MAX_AGE
+            active_tracks = tracks.copy()
+            lost_track_ids = []
+            for tid, age in list(track_ages.items()):
+                if age > 0 and age <= MAX_AGE:  # Lost but not too old
+                    # Check if this track is already in active_tracks
+                    if not any(t[1] == tid for t in active_tracks):
+                        # Add lost track using predicted position from Kalman filter
+                        if tid in k_filters:
+                            kf = k_filters[tid]
+                            pred_x = kf.xk[0][0]
+                            pred_y = kf.xk[1][0]
+                            last_box = track_last_boxes.get(tid, [0, 0, 50, 100])
+                            w, h = last_box[2], last_box[3]
+                            lost_track = np.array([frame_num, tid, int(pred_x - w/2), int(pred_y - h/2), w, h, 1, -1, -1, -1], dtype=int)
+                            active_tracks = np.vstack([active_tracks, lost_track]).astype(int)
+                            lost_track_ids.append(tid)
+            
+            # Original: row_ind, col_ind = match_detections(tracks, current_detections)
+            row_ind, col_ind, cost_matrix = match_detections(active_tracks, current_detections)
+            
+            # === IMPROVEMENT 2: Apply matching threshold ===
+            # Original: matches = {c: r for r, c in zip(row_ind, col_ind)}
+            matches = {}
+            for r, c in zip(row_ind, col_ind):
+                score = cost_matrix[r, c]
+                if score >= MATCHING_THRESHOLD:  # Only accept matches above threshold
+                    matches[c] = r
+                # else: this detection will create a new track
+            
             next_tracks = current_detections.copy()
             next_tracks = np.insert(next_tracks, 0, frame_num, axis=1)
+            matched_track_ids = set()
+            
             for m in range(len(next_tracks)):
                 next_tracks[m][6] = 1 
                 det_x, det_y = next_tracks[m][2], next_tracks[m][3]
@@ -177,20 +242,50 @@ def process_tracking_loop(detections_by_frame, output_file):
                 det_center_x, det_center_y = get_center(det_x, det_y, det_w, det_h)
                 if m in matches:
                     prev_track_idx = matches[m]
-                    track_id = tracks[prev_track_idx][1]
+                    track_id = active_tracks[prev_track_idx][1]
                     next_tracks[m][1] = track_id 
+                    matched_track_ids.add(track_id)
+                    
+                    # === TEST 3: Check if this was a lost track (age > 0) ===
+                    was_lost = track_ages.get(track_id, 0) > 0
+                    
+                    # === IMPROVEMENT 3: Reset age when matched ===
+                    track_ages[track_id] = 0
+                    track_last_boxes[track_id] = [det_x, det_y, det_w, det_h]
+                    
                     if track_id in k_filters:
                         kf = k_filters[track_id]
                         measurement = np.array([[det_center_x], [det_center_y]])
                         kf.update(measurement)
-                        est_cx = kf.xk[0][0]
-                        est_cy = kf.xk[1][0]
-                        next_tracks[m][2] = int(est_cx - det_w / 2)
-                        next_tracks[m][3] = int(est_cy - det_h / 2)
+                        
+                        # === TEST 3: Only use Kalman smoothing if track was not lost ===
+                        # If track was lost, use raw detection to avoid diverged predictions
+                        if not was_lost:
+                            est_cx = kf.xk[0][0]
+                            est_cy = kf.xk[1][0]
+                            next_tracks[m][2] = int(est_cx - det_w / 2)
+                            next_tracks[m][3] = int(est_cy - det_h / 2)
+                        # else: keep the raw detection coordinates (already in next_tracks)
                 else:
                     max_id += 1
                     next_tracks[m][1] = max_id
                     k_filters[max_id] = init_kalman_filter(det_center_x, det_center_y)
+                    # === IMPROVEMENT 3: Initialize age for new track ===
+                    track_ages[max_id] = 0
+                    track_last_boxes[max_id] = [det_x, det_y, det_w, det_h]
+            
+            # === IMPROVEMENT 3: Increment age for unmatched tracks ===
+            for tid in list(track_ages.keys()):
+                if tid not in matched_track_ids:
+                    track_ages[tid] += 1
+                    # Remove tracks that are too old
+                    if track_ages[tid] > MAX_AGE:
+                        del track_ages[tid]
+                        if tid in k_filters:
+                            del k_filters[tid]
+                        if tid in track_last_boxes:
+                            del track_last_boxes[tid]
+            
             tracks = next_tracks.astype(int)
             print(tracks)
             with open(output_file, 'a') as f:

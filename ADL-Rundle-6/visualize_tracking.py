@@ -142,5 +142,5 @@ def visualize_tracking(results_file, img_dir, output_filename):
 #visualize_tracking(APPEARANCE_TRACK_FILE, IMG_DIRECTORY, APPEARANCE_OUTPUT_VIDEO)
 
 # Bonus End-to-end (YOLO11x detection + appearance-aware tracking)
-visualize_tracking(END_TO_END_TRACK_FILE, IMG_DIRECTORY, END_TO_END_OUTPUT_VIDEO)
-#visualize_tracking(APPEARANCE_YOLO11X_TRACK_FILE, IMG_DIRECTORY, APPEARANCE_YOLO11X_OUTPUT_VIDEO)
+#visualize_tracking(END_TO_END_TRACK_FILE, IMG_DIRECTORY, END_TO_END_OUTPUT_VIDEO)
+visualize_tracking(APPEARANCE_YOLO11X_TRACK_FILE, IMG_DIRECTORY, APPEARANCE_YOLO11X_OUTPUT_VIDEO)

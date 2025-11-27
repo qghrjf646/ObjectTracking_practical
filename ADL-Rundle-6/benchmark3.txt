@@ -1,0 +1,88 @@
+Error importing BURST due to missing underlying dependency: No module named 'pycocotools'
+
+Eval Config:
+USE_PARALLEL         : False                         
+NUM_PARALLEL_CORES   : 8                             
+BREAK_ON_ERROR       : True                          
+RETURN_ON_ERROR      : False                         
+LOG_ON_ERROR         : /home/yahya/2026/basic_ml_venvs/ml_obj_track/TrackEval/error_log.txt
+PRINT_RESULTS        : True                          
+PRINT_ONLY_COMBINED  : False                         
+PRINT_CONFIG         : True                          
+TIME_PROGRESS        : True                          
+DISPLAY_LESS_PROGRESS : False                         
+OUTPUT_SUMMARY       : True                          
+OUTPUT_EMPTY_CLASSES : True                          
+OUTPUT_DETAILED      : True                          
+PLOT_CURVES          : True                          
+
+MotChallenge2DBox Config:
+PRINT_CONFIG         : True                          
+GT_FOLDER            : /home/yahya/2026/basic_ml_venvs/ml_obj_track/TrackEval/data/gt/mot_challenge/
+TRACKERS_FOLDER      : /home/yahya/2026/basic_ml_venvs/ml_obj_track/TrackEval/data/trackers/mot_challenge/
+OUTPUT_FOLDER        : None                          
+TRACKERS_TO_EVAL     : ['yolo11x_w_appearance']      
+CLASSES_TO_EVAL      : ['pedestrian']                
+BENCHMARK            : MOT17                         
+SPLIT_TO_EVAL        : train                         
+INPUT_AS_ZIP         : False                         
+DO_PREPROC           : False                         
+TRACKER_SUB_FOLDER   : data                          
+OUTPUT_SUB_FOLDER    :                               
+TRACKER_DISPLAY_NAMES : None                          
+SEQMAP_FOLDER        : None                          
+SEQMAP_FILE          : None                          
+SEQ_INFO             : None                          
+GT_LOC_FORMAT        : {gt_folder}/{seq}/gt/gt.txt   
+SKIP_SPLIT_FOL       : False                         
+
+CLEAR Config:
+METRICS              : ['HOTA', 'Identity', 'CLEAR'] 
+THRESHOLD            : 0.5                           
+PRINT_CONFIG         : True                          
+
+Identity Config:
+METRICS              : ['HOTA', 'Identity', 'CLEAR'] 
+THRESHOLD            : 0.5                           
+PRINT_CONFIG         : True                          
+
+Evaluating 1 tracker(s) on 1 sequence(s) for 1 class(es) on MotChallenge2DBox dataset using the following metrics: HOTA, CLEAR, Identity, Count
+
+
+Evaluating yolo11x_w_appearance
+
+    MotChallenge2DBox.get_raw_seq_data(yolo11x_w_appearance, ADL-Rundle-6) 0.1236 sec
+    MotChallenge2DBox.get_preprocessed_seq_data(pedestrian)                0.1180 sec
+    HOTA.eval_sequence()                                                   0.2314 sec
+    CLEAR.eval_sequence()                                                  0.0404 sec
+    Identity.eval_sequence()                                               0.0083 sec
+    Count.eval_sequence()                                                  0.0000 sec
+1 eval_sequence(ADL-Rundle-6, yolo11x_w_appearance)                      0.5237 sec
+
+All sequences for yolo11x_w_appearance finished in 0.52 seconds
+
+HOTA: yolo11x_w_appearance-pedestrianHOTA      DetA      AssA      DetRe     DetPr     AssRe     AssPr     LocA      OWTA      HOTA(0)   LocA(0)   HOTALocA(0)
+ADL-Rundle-6                       36.897    45.677    30.704    55.143    63.337    42.133    49.922    79.701    40.811    48.138    72.94     35.112    
+COMBINED                           36.897    45.677    30.704    55.143    63.337    42.133    49.922    79.701    40.811    48.138    72.94     35.112    
+
+CLEAR: yolo11x_w_appearance-pedestrianMOTA      MOTP      MODA      CLR_Re    CLR_Pr    MTR       PTR       MLR       sMOTA     CLR_TP    CLR_FN    CLR_FP    IDSW      MT        PT        ML        Frag      
+ADL-Rundle-6                       48.513    76.641    49.89     68.477    78.652    33.333    62.5      4.1667    32.517    3430      1579      931       69        8         15        1         118       
+COMBINED                           48.513    76.641    49.89     68.477    78.652    33.333    62.5      4.1667    32.517    3430      1579      931       69        8         15        1         118       
+
+Identity: yolo11x_w_appearance-pedestrianIDF1      IDR       IDP       IDTP      IDFN      IDFP      
+ADL-Rundle-6                       48.431    45.298    52.029    2269      2740      2092      
+COMBINED                           48.431    45.298    52.029    2269      2740      2092      
+
+Count: yolo11x_w_appearance-pedestrianDets      GT_Dets   IDs       GT_IDs    
+ADL-Rundle-6                       4361      5009      52        24        
+COMBINED                           4361      5009      52        24        
+
+Timing analysis:
+MotChallenge2DBox.get_raw_seq_data                                     0.1236 sec
+MotChallenge2DBox.get_preprocessed_seq_data                            0.1180 sec
+HOTA.eval_sequence                                                     0.2314 sec
+CLEAR.eval_sequence                                                    0.0404 sec
+Identity.eval_sequence                                                 0.0083 sec
+Count.eval_sequence                                                    0.0000 sec
+eval_sequence                                                          0.5237 sec
+Evaluator.evaluate                                                     2.1441 sec
